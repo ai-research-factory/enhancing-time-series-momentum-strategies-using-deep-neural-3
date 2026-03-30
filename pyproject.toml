@@ -1,0 +1,6 @@
+[project]
+name = "enhancing-time-series-momentum-strategies-using-deep-neural-3"
+version = "0.1.0"
+description = "Enhancing Time-Series Momentum Strategies Using Deep Neural Networks"
+requires-python = ">=3.10"
+dependencies = ["numpy", "pandas", "scikit-learn", "torch", "matplotlib", "tqdm"]
