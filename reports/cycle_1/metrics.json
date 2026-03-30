@@ -1,0 +1,27 @@
+{
+  "sharpeRatio": -0.2305,
+  "annualReturn": -0.0358,
+  "maxDrawdown": -0.0912,
+  "hitRate": 0.3629,
+  "totalTrades": 1565,
+  "transactionCosts": {
+    "feeBps": 10.0,
+    "slippageBps": 5.0,
+    "netSharpe": -2.056
+  },
+  "walkForward": {
+    "windows": 4,
+    "positiveWindows": 0,
+    "avgOosSharpe": -2.056
+  },
+  "customMetrics": {
+    "baseline_1n_sharpe": 0.5797,
+    "baseline_1n_return": 0.1076,
+    "baseline_1n_drawdown": -0.3187,
+    "baseline_voltarget_sharpe": 0.5592,
+    "baseline_momentum_sharpe": 0.9871,
+    "strategy_vs_1n_sharpe_diff": -2.4615,
+    "strategy_vs_1n_return_diff": -0.1435,
+    "strategy_vs_1n_drawdown_diff": 0.0996
+  }
+}

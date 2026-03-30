@@ -18,6 +18,38 @@ pytest tests/
 
 Data is fetched from the ARF Data API at runtime. Do not commit data files.
 
+## Running
+
+```bash
+# Run experiment with default config
+python3 -m src.train
+
+# Or via CLI with custom config
+python3 -m src.cli run-experiment --config configs/default.yaml
+```
+
+## Cycle 1 — Core Algorithm Implementation
+
+**Objective**: Implement MLP-based deep momentum network with differentiable Sharpe ratio
+loss and verify basic operation on real market data (Nikkei 225).
+
+### Architecture
+- MLP with 60-day lookback of daily log returns → hidden layers (64, 32) → tanh output
+- Custom differentiable Sharpe ratio loss with turnover regularization
+- Walk-forward validation (4 out-of-sample windows)
+
+### Results (from `reports/cycle_1/metrics.json`)
+
+| Metric | Strategy | 1/N Baseline | Simple Momentum |
+|---|---|---|---|
+| Sharpe (net) | -2.056 | 0.5797 | 0.9871 |
+| Annual Return | -3.58% | 10.76% | — |
+| Max Drawdown | -9.12% | -31.87% | — |
+
+The strategy underperforms all baselines in Cycle 1. Primary cause is excessive turnover
+(~1565 trades) generating high transaction costs. See `reports/cycle_1/technical_findings.md`
+for detailed analysis.
+
 ## Reports
 
 Each cycle produces:
