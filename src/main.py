@@ -1,4 +1,9 @@
-"""Main entry point for Cycle 4: cost analysis with turnover regularization."""
+"""Main entry point for Deep Momentum Network experiments.
+
+Supports:
+- run-cost-analysis: Cycle 4 cost analysis with turnover regularization
+- run-walk-forward: Cycle 5 walk-forward validation with monthly rebalancing
+"""
 import argparse
 import json
 import os
@@ -353,28 +358,33 @@ def run_cost_analysis(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Deep Momentum Network — Cycle 4")
-    parser.add_argument("command", choices=["run-basic-backtest", "run-cost-analysis"])
+    parser = argparse.ArgumentParser(description="Deep Momentum Network")
+    parser.add_argument(
+        "command",
+        choices=["run-basic-backtest", "run-cost-analysis", "run-walk-forward"],
+    )
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--hidden-size", type=int, default=64)
     parser.add_argument("--num-layers", type=int, default=2)
     parser.add_argument("--lr", type=float, default=1e-3)
-    parser.add_argument("--turnover-penalty", type=float, default=0.01)
+    parser.add_argument("--turnover-penalty", type=float, default=0.1)
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--n-splits", type=int, default=5)
-    parser.add_argument("--output-dir", default="reports/cycle_4")
+    parser.add_argument("--lookback", type=int, default=252)
+    parser.add_argument("--rebalance-frequency", default="monthly",
+                        choices=["daily", "monthly"])
+    parser.add_argument("--output-dir", default="reports/cycle_5")
     args = parser.parse_args()
 
     if args.command == "run-basic-backtest":
-        from src.main import run_basic_backtest as _legacy
-        _legacy(
+        from src.training import train_single_split
+        train_single_split(
             epochs=args.epochs,
             hidden_size=args.hidden_size,
             num_layers=args.num_layers,
             lr=args.lr,
             turnover_penalty=args.turnover_penalty,
             batch_size=args.batch_size,
-            output_dir=args.output_dir,
         )
     elif args.command == "run-cost-analysis":
         run_cost_analysis(
@@ -386,6 +396,20 @@ def main():
             n_splits=args.n_splits,
             output_dir=args.output_dir,
         )
+    elif args.command == "run-walk-forward":
+        from src.evaluation import WalkForwardConfig, run_walk_forward
+        wf_config = WalkForwardConfig(
+            n_splits=args.n_splits,
+            lookback=args.lookback,
+            rebalance_frequency=args.rebalance_frequency,
+            hidden_size=args.hidden_size,
+            num_layers=args.num_layers,
+            lr=args.lr,
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            turnover_penalty=args.turnover_penalty,
+        )
+        run_walk_forward(config=wf_config, output_dir=args.output_dir)
 
 
 if __name__ == "__main__":

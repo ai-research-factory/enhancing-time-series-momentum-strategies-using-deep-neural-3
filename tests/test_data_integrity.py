@@ -315,3 +315,76 @@ class TestDataLoader:
         assert data["features"].ndim == 3
         assert not np.isnan(data["features"]).any()
         assert not np.isnan(data["forward_returns"]).any()
+
+
+# ---- Walk-forward evaluation tests ----
+
+class TestWalkForwardValidator:
+    """Tests for the Cycle 5 WalkForwardValidator and monthly rebalancing."""
+
+    @pytest.fixture
+    def dates(self):
+        """Generate ~5 years of business dates."""
+        return pd.bdate_range("2017-01-01", periods=1260, freq="B")
+
+    def test_generate_folds_count(self, dates):
+        from src.evaluation import WalkForwardConfig, WalkForwardValidator
+        config = WalkForwardConfig(n_splits=2, train_years=2, test_years=1)
+        validator = WalkForwardValidator(config)
+        folds = validator.generate_folds(dates)
+        assert len(folds) == 2
+
+    def test_folds_no_overlap(self, dates):
+        from src.evaluation import WalkForwardConfig, WalkForwardValidator
+        config = WalkForwardConfig(n_splits=3, train_years=2, test_years=1)
+        validator = WalkForwardValidator(config)
+        folds = validator.generate_folds(dates)
+        for fold in folds:
+            train_set = set(fold["train_idx"])
+            test_set = set(fold["test_idx"])
+            assert train_set.isdisjoint(test_set)
+            assert max(fold["train_idx"]) < min(fold["test_idx"])
+
+    def test_folds_gap(self, dates):
+        from src.evaluation import WalkForwardConfig, WalkForwardValidator
+        config = WalkForwardConfig(n_splits=3, train_years=2, test_years=1, gap_days=1)
+        validator = WalkForwardValidator(config)
+        folds = validator.generate_folds(dates)
+        for fold in folds:
+            assert min(fold["test_idx"]) - max(fold["train_idx"]) >= 1
+
+    def test_monthly_rebalance_mask(self):
+        from src.evaluation import WalkForwardConfig, WalkForwardValidator
+        dates = pd.bdate_range("2023-01-02", periods=60, freq="B")
+        config = WalkForwardConfig(rebalance_frequency="monthly")
+        validator = WalkForwardValidator(config)
+        mask = validator.get_monthly_rebalance_mask(dates)
+        # First date should be a rebalance date
+        assert mask[0] == True
+        # Should have ~3 month boundaries in 60 business days
+        assert 2 <= mask.sum() <= 5
+
+    def test_monthly_rebalancing_reduces_turnover(self):
+        from src.evaluation import WalkForwardConfig, WalkForwardValidator
+        dates = pd.bdate_range("2023-01-02", periods=60, freq="B")
+        config = WalkForwardConfig(rebalance_frequency="monthly")
+        validator = WalkForwardValidator(config)
+
+        np.random.seed(42)
+        raw_positions = np.random.randn(60, 5) * 0.5
+        rebalanced = validator.apply_monthly_rebalancing(raw_positions, dates)
+
+        # Rebalanced should have much fewer position changes
+        raw_changes = np.abs(np.diff(raw_positions, axis=0)).sum()
+        rebal_changes = np.abs(np.diff(rebalanced, axis=0)).sum()
+        assert rebal_changes < raw_changes
+
+    def test_daily_rebalancing_passthrough(self):
+        from src.evaluation import WalkForwardConfig, WalkForwardValidator
+        dates = pd.bdate_range("2023-01-02", periods=20, freq="B")
+        config = WalkForwardConfig(rebalance_frequency="daily")
+        validator = WalkForwardValidator(config)
+
+        positions = np.random.randn(20, 3)
+        result = validator.apply_monthly_rebalancing(positions, dates)
+        np.testing.assert_array_equal(result, positions)

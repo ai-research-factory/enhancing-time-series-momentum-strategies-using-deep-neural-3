@@ -1,39 +1,44 @@
-# Open Questions — Cycle 4
+# Open Questions — Cycle 5
 
 ## Model Architecture
 - **Shared vs per-asset LSTM**: Current implementation uses a single LSTM processing all
   assets together. The paper may use per-asset processing — needs further investigation.
 - **Multi-horizon features**: Paper may use multiple lookback windows. Current implementation
-  uses a single 60-day window.
+  uses a single 252-day window (updated from 60 in Cycle 5).
 
-## Turnover Problem (Updated Cycle 4)
-- With γ=0.1, turnover reduced from 8.49x to 8.01x (5.66% reduction).
-- This is a modest improvement. Higher γ values (0.5–1.0) should be explored in future cycles.
-- The model still produces frequent small position changes. Position smoothing (EMA) or
-  discretizing positions may help further.
-- **Key insight**: The gap between gross Sharpe (0.70) and net Sharpe (-0.22) is large,
-  indicating transaction costs are the dominant drag on performance.
+## Signal Quality (New Cycle 5)
+- Monthly rebalancing solved the turnover problem (0.96x, < 4x target).
+- The core issue is now **weak gross signal**: avg gross Sharpe 0.34 across 5 folds.
+- The model produces low-conviction positions near zero, resulting in near-zero returns.
+- Possible directions for improvement:
+  - Stronger turnover penalty (γ=0.5-1.0) to force the model into more committed positions
+  - Per-asset LSTM or attention mechanism for better cross-asset learning
+  - Additional features beyond raw returns (e.g., volatility, momentum indicators)
+  - Larger training epochs or learning rate scheduling
 
-## DNN Underperformance (Updated Cycle 4)
-- DNN net Sharpe (-0.22) vs 1/N (1.18): the model still underperforms all baselines.
-- Walk-forward validation confirms the result is not an artifact of a single split.
-- Fold-level analysis shows the model works in some periods (folds 1, 4) but not others,
-  suggesting regime sensitivity.
-- **Possible causes**: (1) γ=0.1 still too low, (2) LSTM struggling with noisy daily returns,
-  (3) need for multi-horizon features, (4) ETF universe may not have strong momentum signals.
+## Regime Sensitivity (Updated Cycle 5)
+- Fold performance varies widely: [1.30, -1.75, 1.23, -0.82, 0.25] net Sharpe
+- Fold 2 (2022-03 to 2023-03, rate hiking cycle) is consistently worst
+- Folds 1 and 3 show strong positive Sharpe (>1.0), suggesting the model works in some regimes
+- Regime detection or conditional model switching could help
+
+## Monthly Rebalancing (Resolved)
+- Monthly rebalancing reduced turnover from 6.81x to 0.96x (86% reduction)
+- Annualized turnover now below the 4x target specified by reviewer
+- Cost drag is minimal at monthly frequency (~0.30 SR units vs ~1.94 at daily)
 
 ## Data Constraints
 - Using 20 ETFs vs paper's ~88 commodity/equity futures — smaller and different universe.
 - ETF universe covers major asset classes but lacks the commodity futures exposure in the paper.
-- Data covers 2016–2026 (10 years), which limits the amount of training data for earlier folds.
+- Data covers 2016–2026 (10 years). With 252-day lookback, effective data starts from 2017-03.
 
-## Walk-Forward Validation
-- 5 folds with expanding windows implemented in Cycle 4.
-- First fold has only 253 training samples (~1 year), which may be insufficient for the LSTM.
-- Later folds have more training data and tend to perform better on gross Sharpe.
+## Cost Model (Updated)
+- Using 10bps total (5bps fee + 5bps slippage) as per paper.
+- With monthly rebalancing, costs are no longer the dominant performance drag.
+- The gross-to-net Sharpe gap is now small (~0.30), confirming the cost model is reasonable.
 
-## Cost Model
-- Using 5bps per trade as per paper. No slippage modeled separately.
-- Real-world costs for ETFs may be lower (1-3 bps), which would improve net performance.
-- The cost model applies costs proportional to position change magnitude, which penalizes
-  continuous-valued position changes more than discrete (0/1) strategies.
+## Paper Spec Alignment (Updated Cycle 5)
+- Lookback: 252 days (aligned with paper's 12-month specification)
+- Rebalance frequency: monthly (aligned with paper specification)
+- Remaining gaps: universe size (20 vs 88), no per-asset LSTM variant tested
+- See `docs/paper_spec.md` for full parameter comparison

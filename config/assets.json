@@ -23,6 +23,6 @@
   ],
   "interval": "1d",
   "period": "10y",
-  "lookback": 60,
+  "lookback": 252,
   "description": "Diverse set of 20 liquid ETFs covering equities, bonds, commodities, and sectors"
 }

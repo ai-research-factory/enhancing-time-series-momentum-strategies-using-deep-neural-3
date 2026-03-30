@@ -1,0 +1,27 @@
+{
+  "description": "Monthly rebalancing results vs daily (Cycle 5)",
+  "rebalance_frequency": "monthly",
+  "cost_model": {
+    "fee_bps": 5.0,
+    "slippage_bps": 5.0
+  },
+  "monthly_rebalance": {
+    "avg_net_sharpe": 0.0402,
+    "avg_gross_sharpe": 0.3366,
+    "avg_turnover": 0.957,
+    "avg_annual_return": 0.0004,
+    "avg_max_drawdown": -0.0042,
+    "positive_folds": 3,
+    "fold_sharpes": [
+      1.2996,
+      -1.7488,
+      1.2289,
+      -0.8241,
+      0.2454
+    ]
+  },
+  "daily_comparison": {
+    "avg_daily_turnover": 6.8145,
+    "turnover_reduction_pct": 85.96
+  }
+}

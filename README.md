@@ -21,11 +21,12 @@ Data is fetched from the ARF Data API at runtime. Do not commit data files.
 ## Running
 
 ```bash
-# Run experiment with default config
-python3 -m src.train
+# Current entry point: src/main.py
+# Walk-forward validation with monthly rebalancing (Cycle 5)
+python3 -m src.main run-walk-forward --epochs 100 --n-splits 5 --lookback 252
 
-# Or via CLI with custom config
-python3 -m src.cli run-experiment --config configs/default.yaml
+# Cost analysis (Cycle 4)
+python3 -m src.main run-cost-analysis --epochs 100 --n-splits 5
 ```
 
 ## Cycle 1 — Core Algorithm Implementation
@@ -148,6 +149,47 @@ See `reports/cycle_4/technical_findings.md`.
 python3 -m src.main run-cost-analysis --epochs 100 --n-splits 5
 
 # Results saved to reports/cycle_4/cost_analysis.json and metrics.json
+```
+
+## Cycle 5 — Walk-Forward Validation with Monthly Rebalancing
+
+**Objective**: Implement walk-forward validation framework with monthly rebalancing
+as specified in the paper, and align lookback period to 252 days (~12 months).
+
+### Changes
+- **`src/evaluation.py`**: New `WalkForwardValidator` class with `WalkForwardConfig`. Supports monthly rebalancing — positions held constant between month-end boundaries.
+- **`src/main.py`**: Added `run-walk-forward` command with `--lookback`, `--rebalance-frequency` flags.
+- **`config/assets.json`**: Lookback updated from 60 to 252 days (paper spec).
+- **`docs/paper_spec.md`**: Paper parameter specification documented.
+- **Code cleanup**: Legacy `src/train.py` and `src/cli.py` moved to `src/deprecated/`.
+
+### Results (from `reports/cycle_5/metrics.json`)
+
+| Metric | Monthly Rebalance | Daily (comparison) |
+|---|---|---|
+| Avg Net Sharpe | 0.0402 | -1.4442 |
+| Avg Gross Sharpe | 0.3366 | — |
+| Avg Turnover | 0.96x | 6.81x |
+| Positive Folds | 3/5 | 0/5 |
+| Turnover Reduction | 85.96% | — |
+
+| Baseline | Sharpe |
+|---|---|
+| 1/N Equal Weight | 1.3446 |
+| Vol-Targeted 1/N | 1.2936 |
+| Simple Momentum | 1.9480 |
+| SMA Crossover | 1.7502 |
+
+Monthly rebalancing reduces turnover by 86% (from 6.81x to 0.96x annualized, meeting
+the < 4x target). The cost drag is now minimal. However, the DNN's gross signal remains
+weak (0.34 SR) and underperforms baselines. See `reports/cycle_5/technical_findings.md`.
+
+### Running
+```bash
+# Walk-forward with monthly rebalancing (paper spec)
+python3 -m src.main run-walk-forward --epochs 100 --n-splits 5 --lookback 252 --rebalance-frequency monthly
+
+# Results saved to reports/cycle_5/walk_forward_summary.json, monthly_rebalance_results.json, metrics.json
 ```
 
 ## Reports
