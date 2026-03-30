@@ -154,8 +154,8 @@ class Backtester:
             tickers: list of asset names
 
         Returns:
-            dict with sharpe, annual_return, max_drawdown, hit_rate, turnover,
-            cumulative_returns series, and per-asset metrics.
+            dict with gross/net sharpe, annual_return, max_drawdown, hit_rate,
+            turnover, totalTrades, cumulative_returns series.
         """
         pos_df = pd.DataFrame(positions, index=dates, columns=tickers)
         ret_df = pd.DataFrame(returns, index=dates, columns=tickers)
@@ -163,21 +163,34 @@ class Backtester:
         # Portfolio return: equal-weighted average of position * return across assets
         port_gross = (pos_df * ret_df).mean(axis=1)
 
-        # Average position for cost calculation
-        avg_pos = pos_df.mean(axis=1)
-        port_net = calculate_costs(port_gross, avg_pos, self.config)
+        # Compute per-asset costs, then average for portfolio-level net return
+        cost_bps = (self.config.fee_bps + self.config.slippage_bps) / 10000
+        pos_changes = pos_df.diff().abs().fillna(0)
+        per_asset_costs = pos_changes * cost_bps
+        port_costs = per_asset_costs.mean(axis=1)
+        port_net = port_gross - port_costs
 
-        metrics = compute_metrics(port_net)
+        gross_metrics = compute_metrics(port_gross)
+        net_metrics = compute_metrics(port_net)
         cumulative = (1 + port_net).cumprod()
 
-        # Turnover: average absolute position change per day
+        # Turnover: average absolute position change per day, annualized
         turnover = pos_df.diff().abs().mean().mean() * 252
 
-        metrics["turnover"] = round(float(turnover), 4)
-        metrics["cumulative_returns"] = cumulative
-        metrics["daily_returns"] = port_net
+        # Total trades: count days where any asset had a meaningful position change
+        trade_threshold = 0.01  # position change > 1% counts as a trade
+        total_trades = int((pos_changes > trade_threshold).any(axis=1).sum())
 
-        return metrics
+        result = net_metrics.copy()
+        result["grossSharpe"] = gross_metrics["sharpeRatio"]
+        result["grossReturn"] = gross_metrics["annualReturn"]
+        result["turnover"] = round(float(turnover), 4)
+        result["totalTrades"] = total_trades
+        result["cumulative_returns"] = cumulative
+        result["daily_returns"] = port_net
+        result["daily_gross_returns"] = port_gross
+
+        return result
 
     @staticmethod
     def sma_crossover_positions(

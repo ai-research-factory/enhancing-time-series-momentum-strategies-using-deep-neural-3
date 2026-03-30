@@ -111,6 +111,45 @@ python3 -m src.main run-basic-backtest
 # Results saved to reports/cycle_3/basic_backtest.json and metrics.json
 ```
 
+## Cycle 4 — Turnover Regularization & Cost Model
+
+**Objective**: Add turnover regularization to the loss function and implement a transaction
+cost model to evaluate net-of-cost performance with walk-forward validation.
+
+### Changes
+- **`src/loss.py`**: Dedicated loss module with `sharpe_loss(positions, returns, turnover_penalty, prev_positions)`. Loss = `-Sharpe + γ * mean(|Δposition|)`.
+- **`src/backtest.py`**: Updated `Backtester` with per-asset cost computation, separate gross/net Sharpe, and fixed `totalTrades` counting.
+- **`src/main.py`**: New `run-cost-analysis` command with 5-fold walk-forward validation comparing γ=0 vs γ=0.1.
+- **Walk-forward validation**: 5 expanding-window folds addressing reviewer feedback.
+
+### Results (from `reports/cycle_4/metrics.json`)
+
+| Metric | No Reg (γ=0) | With Reg (γ=0.1) |
+|---|---|---|
+| Avg Gross Sharpe | 0.5962 | 0.6956 |
+| Avg Net Sharpe (5bps) | -0.2712 | -0.2193 |
+| Avg Turnover | 8.49x | 8.01x |
+| Positive Folds | 2/5 | 2/5 |
+
+| Baseline | Sharpe |
+|---|---|
+| 1/N Equal Weight | 1.1777 |
+| Vol-Targeted 1/N | 1.2580 |
+| Simple Momentum | 1.7772 |
+| SMA Crossover | 1.1512 |
+
+Turnover regularization reduces turnover by 5.66% and improves net Sharpe by 0.05.
+The DNN still underperforms all baselines — transaction costs destroy returns.
+See `reports/cycle_4/technical_findings.md`.
+
+### Running
+```bash
+# Run cost analysis (regularized vs unregularized)
+python3 -m src.main run-cost-analysis --epochs 100 --n-splits 5
+
+# Results saved to reports/cycle_4/cost_analysis.json and metrics.json
+```
+
 ## Reports
 
 Each cycle produces:

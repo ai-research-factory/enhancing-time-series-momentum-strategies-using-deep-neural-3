@@ -1,0 +1,184 @@
+{
+  "description": "Comparison of DNN models with and without turnover regularization",
+  "cost_model": {
+    "fee_bps": 5.0,
+    "slippage_bps": 0.0,
+    "total_cost_bps": 5.0
+  },
+  "walk_forward": {
+    "n_folds": 5,
+    "min_train_size": 252,
+    "gap": 1
+  },
+  "no_regularization": {
+    "gamma": 0.0,
+    "n_folds": 5,
+    "fold_metrics": [
+      {
+        "fold": 0,
+        "net_sharpe": 0.9935,
+        "gross_sharpe": 1.7056,
+        "annual_return": 0.0049,
+        "max_drawdown": -0.0041,
+        "hit_rate": 0.5614,
+        "turnover": 7.013,
+        "total_trades": 439,
+        "test_start": "2017-06-26",
+        "test_end": "2019-03-26"
+      },
+      {
+        "fold": 1,
+        "net_sharpe": -0.6234,
+        "gross_sharpe": 0.077,
+        "annual_return": -0.004,
+        "max_drawdown": -0.0137,
+        "hit_rate": 0.4864,
+        "turnover": 8.9365,
+        "total_trades": 439,
+        "test_start": "2019-03-27",
+        "test_end": "2020-12-21"
+      },
+      {
+        "fold": 2,
+        "net_sharpe": -1.427,
+        "gross_sharpe": -0.6144,
+        "annual_return": -0.0066,
+        "max_drawdown": -0.0175,
+        "hit_rate": 0.475,
+        "turnover": 7.6152,
+        "total_trades": 439,
+        "test_start": "2020-12-22",
+        "test_end": "2022-09-21"
+      },
+      {
+        "fold": 3,
+        "net_sharpe": 0.6543,
+        "gross_sharpe": 1.6767,
+        "annual_return": 0.0028,
+        "max_drawdown": -0.0031,
+        "hit_rate": 0.5295,
+        "turnover": 8.8131,
+        "total_trades": 439,
+        "test_start": "2022-09-22",
+        "test_end": "2024-06-24"
+      },
+      {
+        "fold": 4,
+        "net_sharpe": -0.9535,
+        "gross_sharpe": 0.1363,
+        "annual_return": -0.0044,
+        "max_drawdown": -0.0082,
+        "hit_rate": 0.4818,
+        "turnover": 10.0902,
+        "total_trades": 439,
+        "test_start": "2024-06-25",
+        "test_end": "2026-03-26"
+      }
+    ],
+    "avg_net_sharpe": -0.2712,
+    "std_net_sharpe": 0.9361,
+    "avg_gross_sharpe": 0.5962,
+    "avg_turnover": 8.4936,
+    "avg_annual_return": -0.0015,
+    "avg_max_drawdown": -0.0093,
+    "avg_hit_rate": 0.5068,
+    "total_trades": 2195,
+    "fold_sharpe_ratios": [
+      0.9935,
+      -0.6234,
+      -1.427,
+      0.6543,
+      -0.9535
+    ],
+    "positive_folds": 2
+  },
+  "with_regularization": {
+    "gamma": 0.1,
+    "n_folds": 5,
+    "fold_metrics": [
+      {
+        "fold": 0,
+        "net_sharpe": 0.984,
+        "gross_sharpe": 1.9166,
+        "annual_return": 0.0033,
+        "max_drawdown": -0.0029,
+        "hit_rate": 0.5273,
+        "turnover": 6.3368,
+        "total_trades": 439,
+        "test_start": "2017-06-26",
+        "test_end": "2019-03-26"
+      },
+      {
+        "fold": 1,
+        "net_sharpe": -0.294,
+        "gross_sharpe": 0.4922,
+        "annual_return": -0.0017,
+        "max_drawdown": -0.0107,
+        "hit_rate": 0.5386,
+        "turnover": 9.12,
+        "total_trades": 439,
+        "test_start": "2019-03-27",
+        "test_end": "2020-12-21"
+      },
+      {
+        "fold": 2,
+        "net_sharpe": -1.2391,
+        "gross_sharpe": -0.5173,
+        "annual_return": -0.0074,
+        "max_drawdown": -0.0159,
+        "hit_rate": 0.4568,
+        "turnover": 8.6221,
+        "total_trades": 439,
+        "test_start": "2020-12-22",
+        "test_end": "2022-09-21"
+      },
+      {
+        "fold": 3,
+        "net_sharpe": 0.404,
+        "gross_sharpe": 1.4256,
+        "annual_return": 0.0016,
+        "max_drawdown": -0.0036,
+        "hit_rate": 0.4727,
+        "turnover": 7.917,
+        "total_trades": 439,
+        "test_start": "2022-09-22",
+        "test_end": "2024-06-24"
+      },
+      {
+        "fold": 4,
+        "net_sharpe": -0.9514,
+        "gross_sharpe": 0.1609,
+        "annual_return": -0.0034,
+        "max_drawdown": -0.0071,
+        "hit_rate": 0.4886,
+        "turnover": 8.0678,
+        "total_trades": 439,
+        "test_start": "2024-06-25",
+        "test_end": "2026-03-26"
+      }
+    ],
+    "avg_net_sharpe": -0.2193,
+    "std_net_sharpe": 0.8268,
+    "avg_gross_sharpe": 0.6956,
+    "avg_turnover": 8.0127,
+    "avg_annual_return": -0.0015,
+    "avg_max_drawdown": -0.008,
+    "avg_hit_rate": 0.4968,
+    "total_trades": 2195,
+    "fold_sharpe_ratios": [
+      0.984,
+      -0.294,
+      -1.2391,
+      0.404,
+      -0.9514
+    ],
+    "positive_folds": 2
+  },
+  "config": {
+    "epochs": 100,
+    "hidden_size": 64,
+    "num_layers": 2,
+    "lr": 0.001,
+    "batch_size": 256
+  }
+}

@@ -11,7 +11,8 @@ import numpy as np
 import torch
 from sklearn.preprocessing import StandardScaler
 
-from src.model import DeepMomentumLSTM, sharpe_loss
+from src.model import DeepMomentumLSTM
+from src.loss import sharpe_loss
 
 
 def load_processed_data(path: str = None) -> dict:

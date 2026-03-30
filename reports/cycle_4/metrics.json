@@ -1,0 +1,58 @@
+{
+  "sharpeRatio": 0.6956,
+  "annualReturn": -0.0015,
+  "maxDrawdown": -0.0159,
+  "hitRate": 0.4968,
+  "totalTrades": 2195,
+  "transactionCosts": {
+    "feeBps": 5.0,
+    "slippageBps": 0.0,
+    "netSharpe": -0.2193
+  },
+  "walkForward": {
+    "windows": 5,
+    "positiveWindows": 2,
+    "avgOosSharpe": -0.2193
+  },
+  "customMetrics": {
+    "baseline_1n_sharpe": 1.1777,
+    "baseline_1n_return": 0.1415,
+    "baseline_1n_drawdown": -0.1233,
+    "baseline_voltarget_sharpe": 1.258,
+    "baseline_momentum_sharpe": 1.7772,
+    "baseline_sma_crossover_sharpe": 1.1512,
+    "baseline_sma_crossover_return": 0.0903,
+    "baseline_sma_crossover_drawdown": -0.0755,
+    "dnn_no_reg_gross_sharpe": 0.5962,
+    "dnn_no_reg_net_sharpe": -0.2712,
+    "dnn_no_reg_turnover": 8.4936,
+    "dnn_reg_gross_sharpe": 0.6956,
+    "dnn_reg_net_sharpe": -0.2193,
+    "dnn_reg_turnover": 8.0127,
+    "dnn_turnover": 8.0127,
+    "dnn_hit_rate": 0.4968,
+    "turnover_reduction_pct": 5.66,
+    "strategy_vs_1n_sharpe_diff": -1.397,
+    "strategy_vs_1n_return_diff": -0.143,
+    "strategy_vs_1n_drawdown_diff": 0.1153,
+    "strategy_vs_1n_turnover_ratio": 8.0127,
+    "n_walk_forward_windows": 5,
+    "mean_fold_sharpe": -0.2193,
+    "std_fold_sharpe": 0.8268,
+    "fold_sharpe_ratios": [
+      0.984,
+      -0.294,
+      -1.2391,
+      0.404,
+      -0.9514
+    ]
+  },
+  "n_walk_forward_windows": 5,
+  "fold_sharpe_ratios": [
+    0.984,
+    -0.294,
+    -1.2391,
+    0.404,
+    -0.9514
+  ]
+}

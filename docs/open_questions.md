@@ -1,35 +1,39 @@
-# Open Questions — Cycle 3
+# Open Questions — Cycle 4
 
 ## Model Architecture
-- **LSTM implemented**: Replaced MLP with 2-layer LSTM as per paper. The model now processes
-  3D input (batch, timesteps, n_assets) correctly.
-- **Lookback period**: Paper uses multiple horizons; current implementation uses a single
-  60-day window. Multi-horizon features may capture different momentum regimes.
 - **Shared vs per-asset LSTM**: Current implementation uses a single LSTM processing all
   assets together. The paper may use per-asset processing — needs further investigation.
+- **Multi-horizon features**: Paper may use multiple lookback windows. Current implementation
+  uses a single 60-day window.
 
-## Turnover Problem (Ongoing)
-- The LSTM model with λ=0.01 turnover penalty produces annualized turnover of 8.26x.
-- The model outputs low-conviction positions (near zero) that change frequently.
-- **Next steps**: Phase 4 will increase λ to 0.05–0.10 and add explicit position smoothing.
+## Turnover Problem (Updated Cycle 4)
+- With γ=0.1, turnover reduced from 8.49x to 8.01x (5.66% reduction).
+- This is a modest improvement. Higher γ values (0.5–1.0) should be explored in future cycles.
+- The model still produces frequent small position changes. Position smoothing (EMA) or
+  discretizing positions may help further.
+- **Key insight**: The gap between gross Sharpe (0.70) and net Sharpe (-0.22) is large,
+  indicating transaction costs are the dominant drag on performance.
 
-## DNN Underperformance
-- DNN Sharpe (0.24) vs 1/N (1.18): the model underperforms on all metrics.
-- Low conviction positions result in 0.10% annual return vs 13.88% for 1/N.
-- This suggests the model is not effectively learning momentum signals from the data.
-- **Possible causes**: (1) insufficient training epochs, (2) mini-batch Sharpe estimation
-  is noisy, (3) need for multi-horizon features, (4) lookback period mismatch with paper.
+## DNN Underperformance (Updated Cycle 4)
+- DNN net Sharpe (-0.22) vs 1/N (1.18): the model still underperforms all baselines.
+- Walk-forward validation confirms the result is not an artifact of a single split.
+- Fold-level analysis shows the model works in some periods (folds 1, 4) but not others,
+  suggesting regime sensitivity.
+- **Possible causes**: (1) γ=0.1 still too low, (2) LSTM struggling with noisy daily returns,
+  (3) need for multi-horizon features, (4) ETF universe may not have strong momentum signals.
 
 ## Data Constraints
-- Using 20 ETFs vs paper's ~50+ commodity/equity futures — smaller and different universe.
+- Using 20 ETFs vs paper's ~88 commodity/equity futures — smaller and different universe.
 - ETF universe covers major asset classes but lacks the commodity futures exposure in the paper.
-- Data covers 2016–2026 (10 years), which may limit walk-forward evaluation quality.
+- Data covers 2016–2026 (10 years), which limits the amount of training data for earlier folds.
 
-## Evaluation Limitations
-- Current evaluation uses single 80/20 split — walk-forward validation needed (Phase 5).
-- The test period (2024-04-11 to 2026-03-26) covers a specific market regime and may not
-  be representative.
+## Walk-Forward Validation
+- 5 folds with expanding windows implemented in Cycle 4.
+- First fold has only 253 training samples (~1 year), which may be insufficient for the LSTM.
+- Later folds have more training data and tend to perform better on gross Sharpe.
 
-## Training Stability
-- Results vary across runs due to random initialization and the non-convex Sharpe objective.
-- Consider setting random seeds or using ensemble of models for more stable results.
+## Cost Model
+- Using 5bps per trade as per paper. No slippage modeled separately.
+- Real-world costs for ETFs may be lower (1-3 bps), which would improve net performance.
+- The cost model applies costs proportional to position change magnitude, which penalizes
+  continuous-valued position changes more than discrete (0/1) strategies.

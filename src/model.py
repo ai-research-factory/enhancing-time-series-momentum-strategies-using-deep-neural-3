@@ -75,40 +75,5 @@ class MomentumMLP(nn.Module):
         return self.net(x).squeeze(-1)
 
 
-def sharpe_loss(positions: torch.Tensor, returns: torch.Tensor,
-                turnover_penalty: float = 0.0) -> torch.Tensor:
-    """
-    Differentiable Sharpe ratio loss (negated for minimization).
-
-    Supports both single-asset (1D) and multi-asset (2D) positions/returns.
-
-    Args:
-        positions: (T,) or (T, n_assets) predicted position sizes
-        returns: (T,) or (T, n_assets) next-day returns
-        turnover_penalty: coefficient for turnover regularization
-
-    Returns:
-        Scalar loss = -Sharpe + turnover_penalty * mean(|delta_position|)
-    """
-    pnl = positions * returns
-
-    # For multi-asset: compute portfolio-level PnL (equal-weighted)
-    if pnl.dim() == 2:
-        pnl = pnl.mean(dim=1)  # (T,) average across assets
-
-    mean_pnl = pnl.mean()
-    std_pnl = pnl.std()
-
-    # Avoid division by zero
-    sharpe = mean_pnl / (std_pnl + 1e-8)
-
-    loss = -sharpe
-
-    if turnover_penalty > 0.0:
-        if positions.dim() == 2:
-            turnover = (positions[1:] - positions[:-1]).abs().mean()
-        else:
-            turnover = (positions[1:] - positions[:-1]).abs().mean()
-        loss = loss + turnover_penalty * turnover
-
-    return loss
+# Re-export sharpe_loss from src.loss for backward compatibility
+from src.loss import sharpe_loss  # noqa: F401
