@@ -15,22 +15,23 @@ Implement, validate, and iteratively improve the paper's approach with productio
 
 ## Design Brief
 ### Problem
-This paper introduces "deep momentum networks," a hybrid model that uses an LSTM to learn both trend estimation and position sizing for time-series momentum strategies. The network is trained by directly optimizing the Sharpe ratio, allowing it to derive a data-driven trading rule that accounts for risk-adjusted returns. The authors also propose a turnover regularization term to incorporate transaction costs directly into the training process.
+Traditional time-series momentum strategies often rely on heuristic rules for trend estimation and position sizing, which may not be optimal. This paper addresses this limitation by proposing 'deep momentum networks,' a hybrid model that utilizes a Long Short-Term Memory (LSTM) network. The model is designed to learn both the trend estimation and the optimal position sizing simultaneously from historical price data.
+The core innovation lies in the training process, where the network is trained to directly optimize the portfolio's Sharpe ratio. This end-to-end, data-driven approach allows the model to learn a trading rule that is inherently risk-aware. Furthermore, the paper introduces a turnover regularization term into the loss function, enabling the model to account for transaction costs during training and produce more realistic and cost-effective trading strategies.
 
 ### Datasets
-
+A diverse set of ~20-30 liquid ETFs from yfinance, covering major asset classes. Example tickers: SPY, QQQ, IWM, EFA, EEM, TLT, IEF, HYG, GLD, SLV, USO, UNG, DBC.
 
 ### Targets
-
+The primary optimization target is the out-of-sample portfolio Sharpe ratio. The model's direct output is the position size for each asset at each time step.
 
 ### Model
-Start with a single, liquid asset like the Nikkei 225 index futures or a large-cap stock (e.g., Toyota). For v1, simplify the model from an LSTM to a standard MLP using a lookback window of past returns (e.g., 60 days) as input. The output layer should be a single neuron with a tanh activation to represent position size (-1 to +1). The core of the implementation will be a custom, differentiable Sharpe ratio loss function in PyTorch/TensorFlow. Data needed is daily OHLCV for the chosen asset, ideally 10+ years.
+The model is a 'Deep Momentum Network' based on an LSTM architecture. It takes a sequence of past returns for multiple assets as input and outputs a continuous value for each asset, representing the desired position size (ranging from -1 for full short to +1 for full long). The network is trained end-to-end using a custom loss function, which is the negative of the portfolio's Sharpe ratio, calculated over the training batch. A turnover regularization term is added to this loss to penalize frequent changes in positions, thereby controlling transaction costs.
 
 ### Training
-
+The model is trained and evaluated using a walk-forward validation scheme to prevent look-ahead bias and test for robustness over time. The dataset is split into multiple (e.g., 5-10) chronological folds. In each fold, the model is trained on a rolling or expanding window of past data and tested on the immediately following out-of-sample period. The final performance is the aggregated result from all out-of-sample periods.
 
 ### Evaluation
-Walk-forward validation with transaction costs
+The primary evaluation metric is the out-of-sample Sharpe ratio. This will be compared against a traditional time-series momentum baseline (e.g., moving average crossover with fixed position sizing). Other key metrics include Annualized Return, Volatility, Maximum Drawdown, and Portfolio Turnover. Performance will be reported both gross and net of transaction costs.
 
 
 ## データ取得方法（共通データ基盤）
@@ -65,13 +66,6 @@ df = df.set_index("timestamp")
 - 初回取得はAPI経由、以後はローカルキャッシュを使う
 - data/ディレクトリは.gitignoreに含めること
 
-
-### この論文で推奨されるデータ
-```
-import yfinance as yf
-# Nikkei 225 Index for 10 years
-data = yf.download('^N225', period='10y', interval='1d')
-```
 
 
 ## Preflight チェック（実装開始前に必ず実施）
@@ -115,14 +109,29 @@ data = yf.download('^N225', period='10y', interval='1d')
 ## ★ 今回のタスク (Cycle 2)
 
 
+### Phase 2: データパイプラインの構築 [Track ]
+
+**Track**:  (A=論文再現 / B=近傍改善 / C=独自探索)
+**ゴール**: yfinanceから金融時系列データを取得し、モデルの入力形式に前処理するパイプラインを構築する。
+
+**具体的な作業指示**:
+1. `config/assets.json`に、ダウンロードするETFのティッカーリスト（例: SPY, GLD, TLT, DBCなど20銘柄）を定義します。
+2. `src/data.py`に`DataLoader`クラスを作成します。このクラスは`assets.json`を読み込み、`yfinance.download`を使用して日足の調整後終値データを取得します（`period='max'`）。
+3. 同クラスに前処理メソッドを実装します。処理内容は、対数リターンの計算、NaN値の処理（前方フィル）、およびモデル入力用のローリングウィンドウ（ルックバック期間60日）の作成です。
+4. `scripts/prepare_data.py`を作成し、`DataLoader`を使って処理済みデータを`data/processed/timeseries.pkl`として保存します。
+5. `reports/cycle_2/data_summary.csv`に、各アセットのデータ期間や欠損値の統計を出力します。
+
+**期待される出力ファイル**:
+- src/data.py
+- config/assets.json
+- data/processed/timeseries.pkl
+- reports/cycle_2/data_summary.csv
+
+**受入基準 (これを全て満たすまで完了としない)**:
+- `scripts/prepare_data.py`の実行後、`data/processed/timeseries.pkl`が生成される。
+- 生成されたデータは3次元のNumpy配列（サンプル数, ルックバック期間, 特徴数）であり、NaNを含まない。
 
 
-### 汎用タスク
-Phase計画がないため、以下の一般ガイドラインに従ってください:
-- Cycle 1: 論文のコアアルゴリズムを実装し、合成データで基本動作を確認
-- Cycle 2: 実データの取得と前処理を追加
-- Cycle 3: Walk-forward validation + コスト計算を追加
-- Cycle 4+: レビュー指摘事項の対応
 
 
 ## データ問題でスタックした場合の脱出ルール
@@ -134,12 +143,37 @@ Phase計画がないため、以下の一般ガイドラインに従ってくだ
 4. 目標は「論文の手法が動くこと」であり、「論文と同じデータを揃えること」ではない
 
 
+## スコア推移
+Cycle 1: 45%
 
 
 
+
+
+## レビューからのフィードバック
+### レビュー改善指示
+1. [object Object]
+2. [object Object]
+3. [object Object]
+### マネージャー指示 (次のアクション)
+1. [object Object]
+2. [object Object]
+3. [object Object]
 
 
 ## 全体Phase計画 (参考)
+
+✓ Phase 1: コアモデルとSharpe損失関数の実装 — LSTMベースのDeep Momentum NetworkモデルとカスタムSharpe比損失関数を実装し、合成データで動作確認する。
+→ Phase 2: データパイプラインの構築 — yfinanceから金融時系列データを取得し、モデルの入力形式に前処理するパイプラインを構築する。
+  Phase 3: 基本学習・バックテストループの実装 — 単一の学習・テスト分割でモデルを学習させ、ベースライン戦略と比較する基本的なバックテストを実行する。
+  Phase 4: 売買回転率正則化とコストモデルの実装 — 損失関数に売買回転率ペナルティ項を追加し、バックテストに取引コストモデルを組み込む。
+  Phase 5: ウォークフォワード検証フレームワークの実装 — 厳密なアウトオブサンプル評価のため、ウォークフォワード法によるバックテストフレームワークを実装する。
+  Phase 6: ハイパーパラメータ最適化 — Optunaを用いて、主要なハイパーパラメータの最適な組み合わせを探索する。
+  Phase 7: ロバスト性検証と最終評価 — 最適化されたハイパーパラメータを用いて、より多くの分割数でウォークフォワード検証を実行し、結果のロバスト性を評価する。
+  Phase 8: モデルのポジション分析 — DNNモデルが生成するポジションを可視化・分析し、その取引行動の特性を理解する。
+  Phase 9: 代替モデルアーキテクチャの比較 — GRUや単純なFFNなど、よりシンプルなモデルアーキテクチャを実装し、LSTMの複雑さが必要かどうかを検証する。
+  Phase 10: 最終レポートと可視化 — すべての実験結果を統合し、サマリー、比較表、エクイティカーブを含む包括的な最終レポートを生成する。
+  Phase 11: コードのクリーンアップとドキュメント整備 — コードベースの品質を向上させ、第三者が実験を再現できるようにドキュメントとテストを整備する。
 
 
 ## ベースライン比較（必須）
