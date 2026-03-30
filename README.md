@@ -50,6 +50,35 @@ The strategy underperforms all baselines in Cycle 1. Primary cause is excessive 
 (~1565 trades) generating high transaction costs. See `reports/cycle_1/technical_findings.md`
 for detailed analysis.
 
+## Cycle 2 — Data Pipeline Construction
+
+**Objective**: Build a multi-asset data pipeline fetching 20 liquid ETFs from the ARF Data API,
+computing log returns, and creating 3D rolling-window features for model input.
+
+### Data Universe
+20 ETFs across equities (SPY, QQQ, IWM, EFA, EEM, DIA), sectors (XLE, XLF, XLK, XLV, XLI, XLU, VNQ),
+bonds (TLT, IEF, HYG, LQD), and commodities (GLD, SLV, USO).
+
+### Pipeline Output (from `reports/cycle_2/metrics.json`)
+
+| Metric | Value |
+|---|---|
+| Tickers | 20 / 20 fetched |
+| Raw rows per ticker | 2,516 |
+| Processed features shape | (2454, 60, 20) |
+| Date range | 2016-06-22 to 2026-03-26 |
+| NaN in output | None |
+
+### Usage
+```bash
+# Prepare multi-asset data
+python3 scripts/prepare_data.py
+
+# Output saved to data/processed/timeseries.pkl
+```
+
+See `reports/cycle_2/technical_findings.md` for detailed analysis.
+
 ## Reports
 
 Each cycle produces:

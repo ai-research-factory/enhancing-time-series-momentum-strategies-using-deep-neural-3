@@ -1,12 +1,16 @@
 """
 Data integrity and leakage tests for the deep momentum network.
 """
+import json
+import os
+import pickle
+
 import numpy as np
 import pandas as pd
 import pytest
 import torch
 
-from src.data import prepare_features
+from src.data import prepare_features, DataLoader
 from src.model import MomentumMLP, sharpe_loss
 from src.backtest import (
     BacktestConfig,
@@ -192,3 +196,122 @@ class TestBacktest:
         assert required_keys.issubset(output.keys())
         assert "feeBps" in output["transactionCosts"]
         assert "windows" in output["walkForward"]
+
+
+# ---- DataLoader / multi-asset pipeline tests ----
+
+class TestDataLoader:
+    """Tests for the multi-asset DataLoader class."""
+
+    @pytest.fixture
+    def mock_config(self, tmp_path):
+        """Create a temporary assets.json with 2 tickers for fast testing."""
+        config = {
+            "tickers": ["SPY", "GLD"],
+            "interval": "1d",
+            "period": "5y",
+            "lookback": 10,
+        }
+        config_path = tmp_path / "assets.json"
+        with open(config_path, "w") as f:
+            json.dump(config, f)
+        return str(config_path)
+
+    @pytest.fixture
+    def sample_loader(self):
+        """Create a DataLoader with synthetic raw_data for unit testing."""
+        loader = DataLoader.__new__(DataLoader)
+        loader.tickers = ["A", "B"]
+        loader.interval = "1d"
+        loader.period = "5y"
+        loader.lookback = 5
+        loader.returns_df = None
+
+        # Create synthetic OHLCV data
+        dates = pd.date_range("2020-01-01", periods=100, freq="B")
+        np.random.seed(42)
+        for ticker_name in ["A", "B"]:
+            close = 100 * np.cumprod(1 + np.random.randn(100) * 0.01)
+            loader.raw_data = getattr(loader, "raw_data", {})
+            loader.raw_data[ticker_name] = pd.DataFrame(
+                {"close": close, "open": close, "high": close * 1.01,
+                 "low": close * 0.99, "volume": 1e6},
+                index=dates,
+            )
+        return loader
+
+    def test_compute_returns_shape(self, sample_loader):
+        """Returns DataFrame should have correct shape."""
+        returns = sample_loader.compute_returns()
+        assert returns.shape[1] == 2  # 2 assets
+        assert len(returns) == 99  # 100 - 1 (first row dropped)
+        assert list(returns.columns) == ["A", "B"]
+
+    def test_compute_returns_no_future_leak(self, sample_loader):
+        """Log returns at time t should only use prices at t and t-1."""
+        returns = sample_loader.compute_returns()
+        # Manually verify first return
+        close_a = sample_loader.raw_data["A"]["close"]
+        expected = np.log(close_a.iloc[1] / close_a.iloc[0])
+        np.testing.assert_almost_equal(returns.iloc[0]["A"], expected, decimal=10)
+
+    def test_rolling_windows_shape(self, sample_loader):
+        """Rolling windows should produce 3D array (N, lookback, n_assets)."""
+        features, fwd, dates, tickers = sample_loader.create_rolling_windows()
+        assert features.ndim == 3
+        assert features.shape[1] == 5  # lookback
+        assert features.shape[2] == 2  # n_assets
+        assert fwd.ndim == 2
+        assert fwd.shape[1] == 2
+        assert len(dates) == features.shape[0]
+
+    def test_rolling_windows_no_nan(self, sample_loader):
+        """Output arrays should contain no NaN values."""
+        features, fwd, dates, tickers = sample_loader.create_rolling_windows()
+        assert not np.isnan(features).any()
+        assert not np.isnan(fwd).any()
+
+    def test_rolling_windows_use_only_past(self, sample_loader):
+        """Feature window at index i should only contain returns before date i."""
+        sample_loader.compute_returns()
+        features, fwd, dates, tickers = sample_loader.create_rolling_windows()
+        returns = sample_loader.returns_df
+
+        # Check the first sample
+        date_0 = dates[0]
+        date_pos = returns.index.get_loc(date_0)
+        lookback = sample_loader.lookback
+
+        # The feature window should be returns from date_pos-lookback to date_pos-1
+        expected_window = returns.iloc[date_pos - lookback:date_pos].values
+        np.testing.assert_array_almost_equal(features[0], expected_window, decimal=5)
+
+        # Forward return should be at date_pos+1
+        expected_fwd = returns.iloc[date_pos + 1].values
+        np.testing.assert_array_almost_equal(fwd[0], expected_fwd, decimal=5)
+
+    def test_data_summary_columns(self, sample_loader):
+        """Data summary should contain expected columns."""
+        summary = sample_loader.get_data_summary()
+        expected_cols = {"ticker", "start_date", "end_date", "n_rows",
+                         "n_missing_close", "mean_daily_return", "std_daily_return"}
+        assert expected_cols.issubset(set(summary.columns))
+        assert len(summary) == 2
+
+    def test_processed_pickle_output(self, sample_loader, tmp_path):
+        """save_processed should create a valid pickle with expected keys."""
+        output_path = str(tmp_path / "test_timeseries.pkl")
+        sample_loader.save_processed(output_path=output_path)
+
+        assert os.path.exists(output_path)
+        with open(output_path, "rb") as f:
+            data = pickle.load(f)
+
+        assert "features" in data
+        assert "forward_returns" in data
+        assert "dates" in data
+        assert "tickers" in data
+        assert "lookback" in data
+        assert data["features"].ndim == 3
+        assert not np.isnan(data["features"]).any()
+        assert not np.isnan(data["forward_returns"]).any()

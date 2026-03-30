@@ -1,0 +1,47 @@
+{
+  "sharpeRatio": 0.0,
+  "annualReturn": 0.0,
+  "maxDrawdown": 0.0,
+  "hitRate": 0.0,
+  "totalTrades": 0,
+  "transactionCosts": {
+    "feeBps": 10,
+    "slippageBps": 5,
+    "netSharpe": 0.0
+  },
+  "walkForward": {
+    "windows": 0,
+    "positiveWindows": 0,
+    "avgOosSharpe": 0.0
+  },
+  "customMetrics": {
+    "phase": "data_pipeline",
+    "n_tickers": 20,
+    "n_samples": 2454,
+    "lookback": 60,
+    "n_assets": 20,
+    "features_shape": [2454, 60, 20],
+    "data_start": "2016-06-22",
+    "data_end": "2026-03-26",
+    "raw_data_rows_per_ticker": 2516,
+    "nan_in_features": false,
+    "nan_in_forward_returns": false,
+    "tickers": ["SPY", "QQQ", "IWM", "EFA", "EEM", "TLT", "IEF", "HYG", "LQD", "GLD", "SLV", "USO", "VNQ", "XLE", "XLF", "XLK", "XLV", "XLI", "XLU", "DIA"],
+    "asset_classes": {
+      "equity_broad": ["SPY", "QQQ", "IWM", "EFA", "EEM", "DIA"],
+      "equity_sector": ["XLE", "XLF", "XLK", "XLV", "XLI", "XLU", "VNQ"],
+      "bonds": ["TLT", "IEF", "HYG", "LQD"],
+      "commodities": ["GLD", "SLV", "USO"]
+    },
+    "baseline_1n_sharpe": 0.0,
+    "baseline_1n_return": 0.0,
+    "baseline_1n_drawdown": 0.0,
+    "baseline_voltarget_sharpe": 0.0,
+    "baseline_momentum_sharpe": 0.0,
+    "strategy_vs_1n_sharpe_diff": 0.0,
+    "strategy_vs_1n_return_diff": 0.0,
+    "strategy_vs_1n_drawdown_diff": 0.0,
+    "strategy_vs_1n_turnover_ratio": 0.0,
+    "strategy_vs_1n_cost_sensitivity": "N/A - Phase 2 (data pipeline only)"
+  }
+}

@@ -1,4 +1,4 @@
-# Open Questions — Cycle 1
+# Open Questions — Cycle 2
 
 ## Model Architecture
 - **MLP vs LSTM**: The design brief specifies MLP for v1, but the paper uses LSTM.
@@ -22,7 +22,18 @@
 ## Data
 - Nikkei 225 data from ARF API covers 2016-03-30 to 2026-03-28 (~10 years, 2442 days).
   The paper uses longer history. This may limit the number and quality of walk-forward windows.
+- **Multi-asset universe**: Now using 20 ETFs (vs paper's 88 futures). The ETF universe covers
+  major asset classes but is smaller and uses different instruments than the paper.
+- **Data alignment**: All 20 ETFs returned exactly 2,516 rows with zero missing values.
+  Forward-fill is implemented but was not needed for this dataset.
 
 ## Training Stability
 - Results vary across runs due to random initialization and the non-convex Sharpe objective.
   Consider setting random seeds or using ensemble of models for more stable results.
+
+## Multi-Asset Model Adaptation (for Phase 3)
+- The current MLP model accepts (N, lookback) input for a single asset. Phase 3 needs to
+  adapt it for (N, lookback, n_assets) multi-asset input.
+- Two options: (a) flatten to (N, lookback * n_assets) for MLP, or (b) process each asset
+  through shared LSTM/MLP layers and output per-asset positions.
+- The paper uses a shared LSTM with per-asset output, which is more parameter-efficient.

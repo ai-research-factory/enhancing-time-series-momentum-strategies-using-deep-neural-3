@@ -1,0 +1,28 @@
+{
+  "tickers": [
+    "SPY",
+    "QQQ",
+    "IWM",
+    "EFA",
+    "EEM",
+    "TLT",
+    "IEF",
+    "HYG",
+    "LQD",
+    "GLD",
+    "SLV",
+    "USO",
+    "VNQ",
+    "XLE",
+    "XLF",
+    "XLK",
+    "XLV",
+    "XLI",
+    "XLU",
+    "DIA"
+  ],
+  "interval": "1d",
+  "period": "10y",
+  "lookback": 60,
+  "description": "Diverse set of 20 liquid ETFs covering equities, bonds, commodities, and sectors"
+}
