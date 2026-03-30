@@ -7,7 +7,7 @@ proj_40e845c7
 StatArb, Other
 
 ## Current Cycle
-3
+4
 
 ## Objective
 Implement, validate, and iteratively improve the paper's approach with production-quality standards.
@@ -70,7 +70,7 @@ df = df.set_index("timestamp")
 
 ## Preflight チェック（実装開始前に必ず実施）
 
-**Phase の実装コードを書く前に**、以下のチェックを実施し結果を `reports/cycle_3/preflight.md` に保存すること。
+**Phase の実装コードを書く前に**、以下のチェックを実施し結果を `reports/cycle_4/preflight.md` に保存すること。
 
 ### 1. データ境界表
 以下の表を埋めて、未来データ混入がないことを確認:
@@ -106,29 +106,27 @@ df = df.set_index("timestamp")
 
 **preflight.md が作成されるまで、Phase の実装コードに進まないこと。**
 
-## ★ 今回のタスク (Cycle 3)
+## ★ 今回のタスク (Cycle 4)
 
 
-### Phase 3: 基本学習・バックテストループの実装 [Track ]
+### Phase 4: 売買回転率正則化とコストモデルの実装 [Track ]
 
 **Track**:  (A=論文再現 / B=近傍改善 / C=独自探索)
-**ゴール**: 単一の学習・テスト分割でモデルを学習させ、ベースライン戦略と比較する基本的なバックテストを実行する。
+**ゴール**: 損失関数に売買回転率ペナルティ項を追加し、バックテストに取引コストモデルを組み込む。
 
 **具体的な作業指示**:
-1. `src/training.py`に`train_single_split`関数を実装します。データセットを時系列で80/20に分割し、学習データでモデルをエポック数指定で学習させます。
-2. `src/backtest.py`に`Backtester`クラスを作成します。このクラスは学習済みモデルとテストデータを使い、ステップごとにポジションを生成し、ポートフォリオの累積リターンを計算します。
-3. `Backtester`クラスに、単純な移動平均クロスオーバー戦略（例: 20日SMAと60日SMA）をベースラインとして実装します。
-4. `src/main.py`に`run-basic-backtest`コマンドを追加し、DNNモデルとベースラインモデルのバックテストを実行し、結果（Sharpe比、年率リターン、最大ドローダウン）を`reports/cycle_3/basic_backtest.json`に出力します。
+1. `src/loss.py`の`sharpe_loss`を修正し、`turnover_regularization`項を追加します。損失は `sharpe_loss + gamma * turnover` となり、`gamma`はハイパーパラメータです。`turnover`はバッチ内のポジションの変化の絶対値の合計として計算します。
+2. `src/backtest.py`の`Backtester`クラスを修正し、リバランス時の取引コスト（例: 5bps）を考慮して純収益（Net Returns）を計算するロジックを追加します。
+3. `src/main.py`に`run-cost-analysis`コマンドを追加し、正則化あり/なしで学習したモデルのバックテストを実行し、それぞれの総収益（Gross）と純収益（Net）のパフォーマンス、および売買回転率を`reports/cycle_4/cost_analysis.json`に保存します。
 
 **期待される出力ファイル**:
-- src/training.py
+- src/loss.py
 - src/backtest.py
-- src/main.py
-- reports/cycle_3/basic_backtest.json
+- reports/cycle_4/cost_analysis.json
 
 **受入基準 (これを全て満たすまで完了としない)**:
-- `run-basic-backtest`コマンドが正常に終了する。
-- `basic_backtest.json`にDNNモデルとベースラインモデル両方のSharpe比が記録されている。
+- `cost_analysis.json`にGrossとNetのSharpe比が記録されている。
+- 正則化を有効にしたモデルは、無効にしたモデルよりも売買回転率が低くなる。
 
 
 
@@ -143,7 +141,8 @@ df = df.set_index("timestamp")
 
 
 ## スコア推移
-Cycle 1: 45% → Cycle 2: 55%
+Cycle 1: 45% → Cycle 2: 55% → Cycle 3: 45%
+改善速度: 0.0%/cycle ⚠ 停滞気味 — アプローチの転換を検討
 
 
 
@@ -155,17 +154,26 @@ Cycle 1: 45% → Cycle 2: 55%
 2. [object Object]
 3. [object Object]
 ### マネージャー指示 (次のアクション)
-1. 【最優先】`src/model.py`内の`MomentumMLP`を、論文で提案されているLSTMベースのモデルに置き換える。新しいモデルクラスは、`(batch_size, n_timesteps, n_features)`の形状を持つ3Dテンソルを入力として受け取れるように`forward`メソッドを実装する。
-2. 【重要】`src/train.py`の学習ループを全面的に修正し、`DataLoader`から提供される3Dデータバッチを新しいLSTMモデルで処理できるようにする。現状の2Dテンソルを前提としたロジック (`x.view(x.size(0), -1)`) を削除し、学習がエラーなく完了することを確認する。
-3. 【推奨】モデルと学習ロジックの変更を検証するため、`tests/test_model_io.py`を新規作成する。ダミーの3Dテンソルを生成し、モデルが正しい形状の出力を返すか、また学習ステップ（forward, backward, step）がエラーなく実行されるかを確認する単体テストを追加する。
+1. 【REPLAN: 評価設計修正】
+primaryBlocker: 頑健な評価フレームワークの欠如
+
+以下を最優先で実施:
+1. Walk-forward validationの実装を確認(train/test境界の厳密分離)
+2. フォワードルッキングがないことをテストで証明
+3. metrics.jsonのwalkForward.windowsが5以上であることを確認
+
+完了条件: Walk-forward法による評価が実装され、`reports/cycle_4/metrics.json` に `n_walk_forward_windows` >= 5 というキーと値が記録されること。また、各foldのSharpe Ratioをリストとして記録する `fold_sharpe_ratios` が追加されること。
+2. 【最優先】`src/evaluation.py` に `WalkForwardValidator` クラスを実装する。scikit-learnの `TimeSeriesSplit` を参考に、学習/検証期間の分割、およびオプションで期間間のギャップを設定できる機能を持たせる。このバリデーターを `main.py` の評価ループに組み込み、単一の80/20分割を完全に置き換える。
+3. 【重要】`src/metrics.py` の計算ロジックを修正する。`totalTrades` が0にも関わらず `dnn_turnover` が非ゼロになるバグを特定・修正する。また、`transactionCosts.netSharpe` が取引コストを正しく反映するよう、`sharpeRatio` との計算分離を明確にする。修正を検証するユニットテストを `tests/test_metrics.py` に追加する。
+4. 【推奨】`src/reporting.py` を更新し、Walk-forward評価の各foldの結果（Sharpe, PnL, turnover等）を集計し、`reports/cycle_4/` に保存する機能を追加する。最終的なサマリーメトリクスとして、各foldのSharpeの平均値と標準偏差を `metrics.json` に `mean_fold_sharpe` と `std_fold_sharpe` として記録する。
 
 
 ## 全体Phase計画 (参考)
 
 ✓ Phase 1: コアモデルとSharpe損失関数の実装 — LSTMベースのDeep Momentum NetworkモデルとカスタムSharpe比損失関数を実装し、合成データで動作確認する。
 ✓ Phase 2: データパイプラインの構築 — yfinanceから金融時系列データを取得し、モデルの入力形式に前処理するパイプラインを構築する。
-→ Phase 3: 基本学習・バックテストループの実装 — 単一の学習・テスト分割でモデルを学習させ、ベースライン戦略と比較する基本的なバックテストを実行する。
-  Phase 4: 売買回転率正則化とコストモデルの実装 — 損失関数に売買回転率ペナルティ項を追加し、バックテストに取引コストモデルを組み込む。
+✓ Phase 3: 基本学習・バックテストループの実装 — 単一の学習・テスト分割でモデルを学習させ、ベースライン戦略と比較する基本的なバックテストを実行する。
+→ Phase 4: 売買回転率正則化とコストモデルの実装 — 損失関数に売買回転率ペナルティ項を追加し、バックテストに取引コストモデルを組み込む。
   Phase 5: ウォークフォワード検証フレームワークの実装 — 厳密なアウトオブサンプル評価のため、ウォークフォワード法によるバックテストフレームワークを実装する。
   Phase 6: ハイパーパラメータ最適化 — Optunaを用いて、主要なハイパーパラメータの最適な組み合わせを探索する。
   Phase 7: ロバスト性検証と最終評価 — 最適化されたハイパーパラメータを用いて、より多くの分割数でウォークフォワード検証を実行し、結果のロバスト性を評価する。
@@ -257,9 +265,9 @@ Cycle 1: 45% → Cycle 2: 55%
 
 ## 出力ファイル
 以下のファイルを保存してから完了すること:
-- `reports/cycle_3/preflight.md` — Preflight チェック結果（必須、実装前に作成）
-- `reports/cycle_3/metrics.json` — 下記スキーマに従う（必須）
-- `reports/cycle_3/technical_findings.md` — 実装内容、結果、観察事項
+- `reports/cycle_4/preflight.md` — Preflight チェック結果（必須、実装前に作成）
+- `reports/cycle_4/metrics.json` — 下記スキーマに従う（必須）
+- `reports/cycle_4/technical_findings.md` — 実装内容、結果、観察事項
 
 ### metrics.json 必須スキーマ（Single Source of Truth）
 ```json
