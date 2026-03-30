@@ -7,7 +7,7 @@ proj_40e845c7
 StatArb, Other
 
 ## Current Cycle
-2
+3
 
 ## Objective
 Implement, validate, and iteratively improve the paper's approach with production-quality standards.
@@ -70,7 +70,7 @@ df = df.set_index("timestamp")
 
 ## Preflight チェック（実装開始前に必ず実施）
 
-**Phase の実装コードを書く前に**、以下のチェックを実施し結果を `reports/cycle_2/preflight.md` に保存すること。
+**Phase の実装コードを書く前に**、以下のチェックを実施し結果を `reports/cycle_3/preflight.md` に保存すること。
 
 ### 1. データ境界表
 以下の表を埋めて、未来データ混入がないことを確認:
@@ -106,30 +106,29 @@ df = df.set_index("timestamp")
 
 **preflight.md が作成されるまで、Phase の実装コードに進まないこと。**
 
-## ★ 今回のタスク (Cycle 2)
+## ★ 今回のタスク (Cycle 3)
 
 
-### Phase 2: データパイプラインの構築 [Track ]
+### Phase 3: 基本学習・バックテストループの実装 [Track ]
 
 **Track**:  (A=論文再現 / B=近傍改善 / C=独自探索)
-**ゴール**: yfinanceから金融時系列データを取得し、モデルの入力形式に前処理するパイプラインを構築する。
+**ゴール**: 単一の学習・テスト分割でモデルを学習させ、ベースライン戦略と比較する基本的なバックテストを実行する。
 
 **具体的な作業指示**:
-1. `config/assets.json`に、ダウンロードするETFのティッカーリスト（例: SPY, GLD, TLT, DBCなど20銘柄）を定義します。
-2. `src/data.py`に`DataLoader`クラスを作成します。このクラスは`assets.json`を読み込み、`yfinance.download`を使用して日足の調整後終値データを取得します（`period='max'`）。
-3. 同クラスに前処理メソッドを実装します。処理内容は、対数リターンの計算、NaN値の処理（前方フィル）、およびモデル入力用のローリングウィンドウ（ルックバック期間60日）の作成です。
-4. `scripts/prepare_data.py`を作成し、`DataLoader`を使って処理済みデータを`data/processed/timeseries.pkl`として保存します。
-5. `reports/cycle_2/data_summary.csv`に、各アセットのデータ期間や欠損値の統計を出力します。
+1. `src/training.py`に`train_single_split`関数を実装します。データセットを時系列で80/20に分割し、学習データでモデルをエポック数指定で学習させます。
+2. `src/backtest.py`に`Backtester`クラスを作成します。このクラスは学習済みモデルとテストデータを使い、ステップごとにポジションを生成し、ポートフォリオの累積リターンを計算します。
+3. `Backtester`クラスに、単純な移動平均クロスオーバー戦略（例: 20日SMAと60日SMA）をベースラインとして実装します。
+4. `src/main.py`に`run-basic-backtest`コマンドを追加し、DNNモデルとベースラインモデルのバックテストを実行し、結果（Sharpe比、年率リターン、最大ドローダウン）を`reports/cycle_3/basic_backtest.json`に出力します。
 
 **期待される出力ファイル**:
-- src/data.py
-- config/assets.json
-- data/processed/timeseries.pkl
-- reports/cycle_2/data_summary.csv
+- src/training.py
+- src/backtest.py
+- src/main.py
+- reports/cycle_3/basic_backtest.json
 
 **受入基準 (これを全て満たすまで完了としない)**:
-- `scripts/prepare_data.py`の実行後、`data/processed/timeseries.pkl`が生成される。
-- 生成されたデータは3次元のNumpy配列（サンプル数, ルックバック期間, 特徴数）であり、NaNを含まない。
+- `run-basic-backtest`コマンドが正常に終了する。
+- `basic_backtest.json`にDNNモデルとベースラインモデル両方のSharpe比が記録されている。
 
 
 
@@ -144,7 +143,7 @@ df = df.set_index("timestamp")
 
 
 ## スコア推移
-Cycle 1: 45%
+Cycle 1: 45% → Cycle 2: 55%
 
 
 
@@ -156,16 +155,16 @@ Cycle 1: 45%
 2. [object Object]
 3. [object Object]
 ### マネージャー指示 (次のアクション)
-1. [object Object]
-2. [object Object]
-3. [object Object]
+1. 【最優先】`src/model.py`内の`MomentumMLP`を、論文で提案されているLSTMベースのモデルに置き換える。新しいモデルクラスは、`(batch_size, n_timesteps, n_features)`の形状を持つ3Dテンソルを入力として受け取れるように`forward`メソッドを実装する。
+2. 【重要】`src/train.py`の学習ループを全面的に修正し、`DataLoader`から提供される3Dデータバッチを新しいLSTMモデルで処理できるようにする。現状の2Dテンソルを前提としたロジック (`x.view(x.size(0), -1)`) を削除し、学習がエラーなく完了することを確認する。
+3. 【推奨】モデルと学習ロジックの変更を検証するため、`tests/test_model_io.py`を新規作成する。ダミーの3Dテンソルを生成し、モデルが正しい形状の出力を返すか、また学習ステップ（forward, backward, step）がエラーなく実行されるかを確認する単体テストを追加する。
 
 
 ## 全体Phase計画 (参考)
 
 ✓ Phase 1: コアモデルとSharpe損失関数の実装 — LSTMベースのDeep Momentum NetworkモデルとカスタムSharpe比損失関数を実装し、合成データで動作確認する。
-→ Phase 2: データパイプラインの構築 — yfinanceから金融時系列データを取得し、モデルの入力形式に前処理するパイプラインを構築する。
-  Phase 3: 基本学習・バックテストループの実装 — 単一の学習・テスト分割でモデルを学習させ、ベースライン戦略と比較する基本的なバックテストを実行する。
+✓ Phase 2: データパイプラインの構築 — yfinanceから金融時系列データを取得し、モデルの入力形式に前処理するパイプラインを構築する。
+→ Phase 3: 基本学習・バックテストループの実装 — 単一の学習・テスト分割でモデルを学習させ、ベースライン戦略と比較する基本的なバックテストを実行する。
   Phase 4: 売買回転率正則化とコストモデルの実装 — 損失関数に売買回転率ペナルティ項を追加し、バックテストに取引コストモデルを組み込む。
   Phase 5: ウォークフォワード検証フレームワークの実装 — 厳密なアウトオブサンプル評価のため、ウォークフォワード法によるバックテストフレームワークを実装する。
   Phase 6: ハイパーパラメータ最適化 — Optunaを用いて、主要なハイパーパラメータの最適な組み合わせを探索する。
@@ -258,9 +257,9 @@ Cycle 1: 45%
 
 ## 出力ファイル
 以下のファイルを保存してから完了すること:
-- `reports/cycle_2/preflight.md` — Preflight チェック結果（必須、実装前に作成）
-- `reports/cycle_2/metrics.json` — 下記スキーマに従う（必須）
-- `reports/cycle_2/technical_findings.md` — 実装内容、結果、観察事項
+- `reports/cycle_3/preflight.md` — Preflight チェック結果（必須、実装前に作成）
+- `reports/cycle_3/metrics.json` — 下記スキーマに従う（必須）
+- `reports/cycle_3/technical_findings.md` — 実装内容、結果、観察事項
 
 ### metrics.json 必須スキーマ（Single Source of Truth）
 ```json
