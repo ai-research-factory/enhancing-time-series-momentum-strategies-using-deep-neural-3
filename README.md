@@ -79,6 +79,38 @@ python3 scripts/prepare_data.py
 
 See `reports/cycle_2/technical_findings.md` for detailed analysis.
 
+## Cycle 3 — Basic Learning & Backtest Loop
+
+**Objective**: Train LSTM-based deep momentum network on 80/20 split and compare
+against baseline strategies including SMA crossover.
+
+### Architecture Changes
+- Replaced MLP with **DeepMomentumLSTM**: 2-layer LSTM (hidden=64) → FC head → tanh
+- Input: (batch, 60, 20) — 60-day lookback across 20 assets
+- Output: (batch, 20) — per-asset position sizes in (-1, +1)
+- New `Backtester` class for systematic strategy comparison
+
+### Results (from `reports/cycle_3/metrics.json`)
+
+| Strategy | Sharpe Ratio | Annual Return | Max Drawdown |
+|---|---|---|---|
+| DNN (LSTM) | 0.2444 | 0.10% | -0.62% |
+| 1/N Equal Weight | 1.1819 | 13.88% | -12.33% |
+| Vol-Targeted 1/N | 1.2378 | — | — |
+| Simple Momentum | 2.0670 | — | — |
+| SMA Crossover (20/60) | 0.9432 | 7.15% | -7.75% |
+
+The DNN model produces low-conviction positions with high turnover (8.26x annualized),
+underperforming all baselines. See `reports/cycle_3/technical_findings.md`.
+
+### Running
+```bash
+# Run basic backtest (DNN vs baselines)
+python3 -m src.main run-basic-backtest
+
+# Results saved to reports/cycle_3/basic_backtest.json and metrics.json
+```
+
 ## Reports
 
 Each cycle produces:

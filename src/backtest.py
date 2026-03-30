@@ -1,6 +1,7 @@
 """
 ARF Standard Backtest Framework
 Walk-forward validation with transaction cost accounting.
+Includes Backtester class for model vs baseline comparison.
 """
 import numpy as np
 import pandas as pd
@@ -125,6 +126,153 @@ def compute_metrics(returns: pd.Series, risk_free_rate: float = 0.0, periods_per
         "maxDrawdown": round(max_drawdown, 4),
         "hitRate": round(hit_rate, 4),
     }
+
+
+class Backtester:
+    """Backtester for comparing DNN model positions against baselines.
+
+    Takes pre-computed positions and returns, computes portfolio-level
+    cumulative returns, and evaluates against SMA crossover baseline.
+    """
+
+    def __init__(self, config: Optional[BacktestConfig] = None):
+        self.config = config or BacktestConfig()
+
+    def evaluate_positions(
+        self,
+        positions: np.ndarray,
+        returns: np.ndarray,
+        dates: pd.DatetimeIndex,
+        tickers: list,
+    ) -> dict:
+        """Evaluate a set of multi-asset positions.
+
+        Args:
+            positions: (T, n_assets) position sizes
+            returns: (T, n_assets) forward returns
+            dates: DatetimeIndex of length T
+            tickers: list of asset names
+
+        Returns:
+            dict with sharpe, annual_return, max_drawdown, hit_rate, turnover,
+            cumulative_returns series, and per-asset metrics.
+        """
+        pos_df = pd.DataFrame(positions, index=dates, columns=tickers)
+        ret_df = pd.DataFrame(returns, index=dates, columns=tickers)
+
+        # Portfolio return: equal-weighted average of position * return across assets
+        port_gross = (pos_df * ret_df).mean(axis=1)
+
+        # Average position for cost calculation
+        avg_pos = pos_df.mean(axis=1)
+        port_net = calculate_costs(port_gross, avg_pos, self.config)
+
+        metrics = compute_metrics(port_net)
+        cumulative = (1 + port_net).cumprod()
+
+        # Turnover: average absolute position change per day
+        turnover = pos_df.diff().abs().mean().mean() * 252
+
+        metrics["turnover"] = round(float(turnover), 4)
+        metrics["cumulative_returns"] = cumulative
+        metrics["daily_returns"] = port_net
+
+        return metrics
+
+    @staticmethod
+    def sma_crossover_positions(
+        raw_prices: pd.DataFrame,
+        short_window: int = 20,
+        long_window: int = 60,
+    ) -> pd.DataFrame:
+        """Generate SMA crossover positions for all assets.
+
+        Long (+1) when short SMA > long SMA, else flat (0).
+
+        Args:
+            raw_prices: DataFrame of close prices (dates x tickers)
+            short_window: short moving average window (default 20)
+            long_window: long moving average window (default 60)
+
+        Returns:
+            DataFrame of positions (dates x tickers), values in {0, 1}
+        """
+        sma_short = raw_prices.rolling(short_window, min_periods=short_window).mean()
+        sma_long = raw_prices.rolling(long_window, min_periods=long_window).mean()
+        positions = (sma_short > sma_long).astype(float)
+        return positions
+
+    def compute_baselines(
+        self,
+        returns: np.ndarray,
+        dates: pd.DatetimeIndex,
+        tickers: list,
+        raw_prices: pd.DataFrame = None,
+    ) -> dict:
+        """Compute baseline strategy metrics.
+
+        Args:
+            returns: (T, n_assets) forward returns for the test period
+            dates: test period dates
+            tickers: asset names
+            raw_prices: full price DataFrame for SMA computation
+
+        Returns:
+            dict of baseline metrics for customMetrics
+        """
+        ret_df = pd.DataFrame(returns, index=dates, columns=tickers)
+        custom = {}
+
+        # Baseline 1: 1/N equal weight (fully invested)
+        ones = pd.DataFrame(1.0, index=dates, columns=tickers)
+        port_1n = ret_df.mean(axis=1)  # equal-weighted return
+        avg_pos_1n = ones.mean(axis=1)
+        net_1n = calculate_costs(port_1n, avg_pos_1n, self.config)
+        m_1n = compute_metrics(net_1n)
+        custom["baseline_1n_sharpe"] = m_1n["sharpeRatio"]
+        custom["baseline_1n_return"] = m_1n["annualReturn"]
+        custom["baseline_1n_drawdown"] = m_1n["maxDrawdown"]
+
+        # Baseline 2: Vol-targeted 1/N (10% target vol)
+        target_vol = 0.10
+        rolling_vol = port_1n.rolling(60, min_periods=20).std() * np.sqrt(252)
+        vol_scale = (target_vol / (rolling_vol + 1e-8)).clip(0, 2).fillna(1.0)
+        port_vol = vol_scale * port_1n
+        avg_pos_vol = vol_scale
+        net_vol = calculate_costs(port_vol, avg_pos_vol, self.config)
+        m_vol = compute_metrics(net_vol)
+        custom["baseline_voltarget_sharpe"] = m_vol["sharpeRatio"]
+
+        # Baseline 3: Simple momentum (long top 50% by 252-day return)
+        cum_ret = ret_df.rolling(252, min_periods=60).sum()
+        # Rank: top 50% get long position
+        mom_pos = cum_ret.apply(
+            lambda row: (row >= row.median()).astype(float), axis=1
+        ).fillna(0)
+        port_mom = (mom_pos * ret_df).mean(axis=1)
+        avg_pos_mom = mom_pos.mean(axis=1)
+        net_mom = calculate_costs(port_mom, avg_pos_mom, self.config)
+        m_mom = compute_metrics(net_mom)
+        custom["baseline_momentum_sharpe"] = m_mom["sharpeRatio"]
+
+        # Baseline 4: SMA crossover (20/60 day)
+        if raw_prices is not None:
+            sma_pos = self.sma_crossover_positions(raw_prices, 20, 60)
+            # Align SMA positions with test dates
+            sma_pos_test = sma_pos.reindex(dates).fillna(0)
+            # Ensure columns match
+            common_cols = [c for c in tickers if c in sma_pos_test.columns]
+            sma_pos_aligned = sma_pos_test[common_cols]
+            ret_aligned = ret_df[common_cols]
+            port_sma = (sma_pos_aligned * ret_aligned).mean(axis=1)
+            avg_pos_sma = sma_pos_aligned.mean(axis=1)
+            net_sma = calculate_costs(port_sma, avg_pos_sma, self.config)
+            m_sma = compute_metrics(net_sma)
+            custom["baseline_sma_crossover_sharpe"] = m_sma["sharpeRatio"]
+            custom["baseline_sma_crossover_return"] = m_sma["annualReturn"]
+            custom["baseline_sma_crossover_drawdown"] = m_sma["maxDrawdown"]
+
+        return custom
 
 
 def generate_metrics_json(
